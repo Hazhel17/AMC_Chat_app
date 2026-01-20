@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
-import 'screens/chat_screen.dart';  // ← Points to FULL chat screen
+import 'screens/chat_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';// ← Points to FULL chat screen
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try{
+    await dotenv.load(fileName: ".env");
+  }
+  catch (e) {
+    throw Exception('Error loading .env file: $e');
+  }
   runApp(ChatApp());
 }
 
