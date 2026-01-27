@@ -17,7 +17,7 @@ class ChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chat UI Lab - Complete ',
+      title: 'Week 4: Multi-Turn Chat',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,

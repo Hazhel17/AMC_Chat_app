@@ -3,6 +3,7 @@ import '../models/chat_message.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/input_bar.dart';
 import '../services/gemini_service.dart';
+
 class ChatScreen extends StatefulWidget {
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -11,12 +12,19 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> messages = [];
   final ScrollController scrollController = ScrollController();
+  bool _isLoading = false;
 
-  void addMessage(String text, bool isUser) {
+  // --- VINTAGE COLOR PALETTE ---
+  static const Color vintageBg = Color(0xFFF2E8CF);    // Creamy Parchment
+  static const Color vintageHeader = Color(0xFF386641); // Deep Hunter Green
+  static const Color vintageAccent = Color(0xFFBC4749); // Muted Rust Red
+  static const Color vintageText = Color(0xFF2B2D42);   // Typewriter Charcoal
+
+  void addMessage(String text, String role) {
     setState(() {
       messages.add(ChatMessage(
         text: text,
-        isUserMessage: isUser,
+        role: role,
         timestamp: DateTime.now(),
       ));
     });
@@ -25,106 +33,84 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      scrollController.animateTo(
-        scrollController.position.maxScrollExtent,
-        duration: Duration(milliseconds: 100),
-        curve: Curves.easeOut,
-      );
+      if (scrollController.hasClients) {
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
   Future<void> handleSend(String text) async {
-    addMessage(text, true);  // User message
+    if (text.trim().isEmpty) return;
 
-    // 🔥 LOADING
-    addMessage('AI is Thinking...', false);
+    addMessage(text, "user");
+    setState(() => _isLoading = true);
 
     try {
-      // 🔥 REAL GEMINI CALL
-      final aiResponse = await GeminiService.sendMessage(text);
-
-      // Remove loading message
-      setState(() {
-        messages.removeLast();  // Remove "AI Thinking..."
-      });
-
-      addMessage(aiResponse, false);  // Real response
+      // Logic from gemini_service.dart
+      final aiResponse = await GeminiService.sendMultiTurnMessage(messages);
+      addMessage(aiResponse, "model");
     } catch (e) {
-      setState(() {
-        messages.removeLast();  // Remove loading
-      });
-      addMessage(' Error: $e', false);
+      addMessage('❌ Error: $e', "model");
+    } finally {
+      setState(() => _isLoading = false);
     }
-  }
-
-  @override
-  void dispose() {
-    scrollController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: vintageBg, // Apply background color
       appBar: AppBar(
-        backgroundColor: Colors.white, // Keeps the top bar clean
-        elevation: 0,
-        centerTitle: true,
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            // Border and Radius for the Title
-            border: Border.all(color: Colors.green.shade700, width: 2),
-            borderRadius: BorderRadius.circular(20),
-            color: Colors.white.withOpacity(0.9),
-          ),
-          child: const Text(
-            '🤖 Chat UI',
-            style: TextStyle(
-              color: Colors.green,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
+        title: const Text(
+          '🤖 AI Chat - Multi-Turn Week 4',
+          style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold),
         ),
+        backgroundColor: vintageHeader, // Apply green header
+        foregroundColor: Colors.white,
+        elevation: 8,
       ),
-      // This Container adds the Green Gradient background
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.green.shade100, // Light green at top
-              Colors.green.shade300, // Deeper green at bottom
-            ],
-          ),
-        ),
-        child: Column(
-          children: [
-            Expanded(
-              child: messages.isEmpty
-                  ? const Center(
-                child: Text(
-                  'Send message to start!',
-                  style: TextStyle(color: Colors.black54, fontSize: 16),
-                ),
-              )
-                  : ListView.builder(
-                controller: scrollController,
-                reverse: true,
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  return MessageBubble(
-                    message: messages[messages.length - 1 - index],
-                  );
-                },
+      body: Column(
+        children: [
+          Expanded(
+            child: messages.isEmpty
+                ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history_edu, size: 80, color: vintageHeader),
+                  SizedBox(height: 16),
+                  Text(
+                    'Begin your correspondence...',
+                    style: TextStyle(color: vintageText, fontStyle: FontStyle.italic),
+                  ),
+                ],
               ),
+            )
+                : ListView.builder(
+              controller: scrollController,
+              padding: const EdgeInsets.all(12),
+              itemCount: messages.length,
+              itemBuilder: (context, index) => MessageBubble(message: messages[index]),
             ),
-            // Your input bar stays at the bottom
-            InputBar(onSendMessage: handleSend),
-          ],
-        ),
+          ),
+
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator(color: vintageAccent)),
+            ),
+
+          // Input Bar Background
+          Container(
+            color: vintageHeader.withOpacity(0.05),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InputBar(onSendMessage: handleSend),
+          ),
+        ],
       ),
     );
   }
